@@ -13,7 +13,6 @@ import datetime
 # 一次直播有一个videoShow，按照两小时分为多个video，这些video的日期 可能跨天
 # show中的list，包含一次直播所有的videos数组
 # 这里的videos可能是直播回放，也可能是精彩时刻，或直播片段
-up_id = '0rEdlk3MgwNM'
 show_limit = 3
 video_limit = 5
 
@@ -23,27 +22,27 @@ cursor = connect.cursor()
 
 
 # 获取show信息
-def get_show_info(page_id):
+def get_show_info(up_id, page_id):
     url = 'https://v.douyu.com/wgapi/vod/center/getAuthorShowAndVideoList?up_id=' + up_id + \
           '&page=' + str(page_id) + '&limit=' + str(show_limit) + '&type=0'
     return json.loads(requests.get(url).text)
 
 
 # 获取video信息
-def get_video_info(show_id, page_id):
+def get_video_info(up_id, show_id, page_id):
     url = 'https://v.douyu.com/wgapi/vod/center/getAuthorShowVideoList?up_id=' + up_id \
           + '&page=' + str(page_id) + '&limit=' + str(video_limit) + '&show_id=' + str(show_id) + '&type=0'
     return json.loads(requests.get(url).text)
 
 
 # 保存一次show所对应的所有videos
-def save_videos(show_id, total_video_count):
+def save_videos(up_id, show_id, total_video_count):
     # 计算总页数
     total_page = math.ceil(total_video_count / video_limit)
     # 遍历获取每一页
     for page_id in range(1, total_page + 1):
         # 拿到video列表
-        video_list = get_video_info(show_id, page_id)['data']
+        video_list = get_video_info(up_id, show_id, page_id)['data']
         # 遍历拿到每一个video
         for index_of_show, eachVideo in enumerate(video_list):
             # 根据hash_id查询数据库，判断是video是否已经存在
@@ -116,16 +115,21 @@ def save_shows_and_videos(show_list, up_id, page_id):
             print("show已存在，skip " + str(eachShow['show_id']) + " " + eachShow['title'])
         total_video_count = eachShow['cut_num'] + eachShow['fan_num'] + eachShow['re_num']
         # show就算是已经保存了，还是要保存video，因为可能有任务中途中断，video也会自己判断是否存在
-        save_videos(eachShow['show_id'], total_video_count)
+        save_videos(up_id, eachShow['show_id'], total_video_count)
 
 
 if __name__ == '__main__':
+    # uid = '0rEdlk3MgwNM'
+    uid = 'XrZwYoqQlAbK'
     # 先发一个请求，拿到count总数
-    firstVideoShow = get_show_info(1)
+    firstVideoShow = get_show_info(uid, 1)
+    print(firstVideoShow)
     count = firstVideoShow['data']['count']
+    print(count)
     # 计算总页数
     totalPage = math.ceil(count / show_limit)
+    print(totalPage)
     # 遍历每一页，发请求，保存videoInfo
     for page in range(330, totalPage + 1):
-        videoShowList = get_show_info(page)['data']['list']
-        save_shows_and_videos(videoShowList, up_id, page)
+        videoShowList = get_show_info(uid, page)['data']['list']
+        save_shows_and_videos(videoShowList, uid, page)

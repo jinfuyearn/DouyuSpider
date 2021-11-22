@@ -14,7 +14,7 @@ def get_mysql_connect():
         host="localhost",
         port=3306,
         user="root",
-        passwd="mysqlmima123",
+        passwd="mysql",
         db="douyu_download",
         charset='utf8'
     )
