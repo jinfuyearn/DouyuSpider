@@ -25,14 +25,24 @@ cursor = connect.cursor()
 def get_show_info(up_id, page_id):
     url = 'https://v.douyu.com/wgapi/vod/center/getAuthorShowAndVideoList?up_id=' + up_id + \
           '&page=' + str(page_id) + '&limit=' + str(show_limit) + '&type=0'
-    return json.loads(requests.get(url).text)
+    try:
+        resp = requests.get(url)
+    except requests.exceptions.ConnectionError:
+        print('request [%d] failed' % page_id)
+        return {}
+    return json.loads(resp.text)
 
 
 # 获取video信息
 def get_video_info(up_id, show_id, page_id):
     url = 'https://v.douyu.com/wgapi/vod/center/getAuthorShowVideoList?up_id=' + up_id \
           + '&page=' + str(page_id) + '&limit=' + str(video_limit) + '&show_id=' + str(show_id) + '&type=0'
-    return json.loads(requests.get(url).text)
+    try:
+        resp = requests.get(url)
+    except requests.exceptions.ConnectionError:
+        print('request [%d, %d] failed' % (show_id, page_id))
+        return {}
+    return json.loads(resp.text)
 
 
 # 保存一次show所对应的所有videos
@@ -42,7 +52,7 @@ def save_videos(up_id, show_id, total_video_count):
     # 遍历获取每一页
     for page_id in range(1, total_page + 1):
         # 拿到video列表
-        video_list = get_video_info(up_id, show_id, page_id)['data']
+        video_list = get_video_info(up_id, show_id, page_id).get('data', [])
         # 遍历拿到每一个video
         for index_of_show, eachVideo in enumerate(video_list):
             # 根据hash_id查询数据库，判断是video是否已经存在
@@ -82,9 +92,11 @@ def save_shows_and_videos(show_list, up_id, page_id):
             start_month = start_date_time.month
             start_day = start_date_time.day
         else:
-            start_year = 0
-            start_month = 0
-            start_day = 0
+            print('wrong show info: [%s]' % show_list)
+            continue
+            # start_year = 0
+            # start_month = 0
+            # start_day = 0
         # 先根据show_id查询数据库，看该场show是否已经存在
         sql_count = "select count(*) from douyu_show where show_id='" + str(eachShow['show_id']) + "'"
         cursor.execute(sql_count)
@@ -130,6 +142,12 @@ if __name__ == '__main__':
     totalPage = math.ceil(count / show_limit)
     print(totalPage)
     # 遍历每一页，发请求，保存videoInfo
-    for page in range(330, totalPage + 1):
-        videoShowList = get_show_info(uid, page)['data']['list']
+    num = 0
+    for page in range(220, totalPage + 1):
+        num += 1
+        if num > 50:
+            break
+        show_info = get_show_info(uid, page)
+        data_info = show_info.get('data', {})
+        videoShowList = data_info.get('list', [])
         save_shows_and_videos(videoShowList, uid, page)
