@@ -1,30 +1,51 @@
 import requests
 import os
-
-url = 'https://play-tx-recpub.douyucdn2.cn/live/super_live-7261911rcjksRSiB--20211102155530/transcode_live' \
-      '-7261911rcjksRSiB--20211102155530_128441_0000%s.ts?tlink=61824e31&tplay=6182dad1&exper=0&nlimit=5&us' \
-      '=77b76c28d3bf8fba279062bc14357d3d&sign=9b6e2ffef900064a50835762492458ee&u=0&d=77b76c28d3bf8fba279062bc14357d3d' \
-      '&ct=&vid=25801156&pt=1&cdn=tx'
+import shutil
 
 
-def download(url1, ints):
-    urls = url1 % ints
-    r = requests.get(urls)  # create HTTP response object
-    name = ints + '.ts'
-    with open(name, 'wb') as f:
-        f.write(r.content)
+def download(m3u8_url, part, file_path):
+    real_url = m3u8_url % part
+    try:
+        resp = requests.get(real_url)
+    except requests.exceptions.ConnectTimeout:
+        print('request [%s] failed' % part)
+        return 1
+    file_name = os.path.join(file_path, '%s.ts' % part)
+    with open(file_name, 'wb') as f:
+        f.write(resp.content)
+    return 0
 
 
-start = 0
-stop = 200
+def main():
+    url = 'https://play-tx-recpub.douyucdn2.cn/live/high_live-19223rqAUCIibPCy--20180801180155' \
+          '/32bee38beb5a43ff951745e832edb32c_0000%s.ts?tlink=61a1c81d&tplay=61a254bd&exper=0&nlimit=5&us' \
+          '=8cd5db3dc55baf6ea2a78acc00031601&sign=78d53849bcdd179a824afa3c54ce5e9b&u=0&d' \
+          '=8cd5db3dc55baf6ea2a78acc00031601&ct=&vid=5298050&pt=2&cdn=tx'
+    start = 682
+    stop = 700
+    timestamp = '20180801'
 
-for i in range(start, stop):
-    i = str(i)
-    if len(i) < 2:
-        i = '00' + i
-    elif len(i) < 3:
-        i = '0' + i
-    else:
-        pass
-    download(url, i)
-os.system('copy /b *.ts new1.ts')  # new1.ts是生成的合并后的ts文件
+    temp = 'temp_%s' % timestamp
+    if not os.path.exists(temp):
+        os.mkdir(temp)
+    for i in range(start, stop + 1):
+        part = '%3s' % i
+        cnt = 0
+        while download(url, part, temp):
+            if cnt >= 5:
+                return
+            cnt += 1
+
+    if not os.path.exists(timestamp):
+        os.mkdir(timestamp)
+    tmp_file = os.path.join(temp, '*.ts')
+    video_file = os.path.join(timestamp, '%s.ts' % timestamp)
+    cmd = 'copy /b %s %s' % (tmp_file, video_file)
+    print(cmd)
+    os.system(cmd)
+    shutil.rmtree(temp)
+    print('done')
+
+
+if __name__ == '__main__':
+    main()
